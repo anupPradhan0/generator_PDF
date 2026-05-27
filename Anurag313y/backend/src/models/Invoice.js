@@ -1,14 +1,5 @@
 import mongoose from 'mongoose';
 
-const lineItemSchema = new mongoose.Schema(
-  {
-    description: { type: String, required: true, trim: true },
-    quantity: { type: Number, required: true, min: 1 },
-    unitPrice: { type: Number, required: true, min: 0 },
-  },
-  { _id: false },
-);
-
 const invoiceSchema = new mongoose.Schema(
   {
     user: {
@@ -16,55 +7,36 @@ const invoiceSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    invoiceNumber: {
+    referenceNumber: {
       type: String,
       required: true,
       trim: true,
     },
-    clientName: {
+    customerName: {
       type: String,
       required: true,
       trim: true,
     },
-    clientEmail: {
+    mobileNo: {
       type: String,
+      required: true,
       trim: true,
     },
-    issueDate: {
-      type: Date,
-      default: Date.now,
-    },
-    dueDate: {
-      type: Date,
-    },
-    lineItems: {
-      type: [lineItemSchema],
-      default: [],
-    },
-    subtotal: {
-      type: Number,
-      default: 0,
-    },
-    tax: {
-      type: Number,
-      default: 0,
-    },
-    total: {
-      type: Number,
-      default: 0,
-    },
-    status: {
+    eventName: {
       type: String,
-      enum: ['draft', 'sent', 'paid', 'overdue'],
-      default: 'draft',
-    },
-    notes: {
-      type: String,
+      required: true,
       trim: true,
+    },
+    eventDate: {
+      type: Date,
+      required: true,
     },
   },
   { timestamps: true },
 );
+
+invoiceSchema.index({ user: 1, referenceNumber: 1 }, { unique: true });
+invoiceSchema.index({ user: 1, eventDate: -1 });
 
 const Invoice = mongoose.model('Invoice', invoiceSchema);
 

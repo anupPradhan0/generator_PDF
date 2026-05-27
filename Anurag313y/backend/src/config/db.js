@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { migrateInvoiceIndexes } from './migrateIndexes.js';
 
 const connectDB = async () => {
   const mongoUri = process.env.MONGO_URI;
@@ -10,6 +11,7 @@ const connectDB = async () => {
   try {
     const conn = await mongoose.connect(mongoUri);
     console.log(`MongoDB connected: ${conn.connection.host}`);
+    await migrateInvoiceIndexes();
   } catch (error) {
     console.error(`MongoDB connection error: ${error.message}`);
     console.error(

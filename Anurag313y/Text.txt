@@ -1,7 +1,9 @@
 Stack breakdown:
 
-MongoDB — store clients, invoices, line items (Docker in this folder — setup later)
-Express + Node — REST API in ./backend (auth, CRUD, PDF generation)
-React — dashboard UI in ./frontend (invoice builder form)
+MongoDB — persistent volume via docker-compose
+Express + Node — REST API in ./backend (auth, events CRUD, PDF export)
+React — dashboard UI in ./frontend (events form: name, mobile, event name, date)
 
 Project root: Anurag313y/
+
+Run locally: backend + frontend npm dev, OR `docker compose up --build` (see DOCKER.md).

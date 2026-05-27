@@ -15,17 +15,17 @@ function Navbar() {
     <header className="border-b border-slate-200 bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
         <Link to="/" className="text-lg font-semibold text-slate-900">
-          Invoice Generator Dashboard
+          Event Dashboard
         </Link>
 
         <nav className="flex items-center gap-2">
           {isAuthenticated ? (
             <>
               <NavLink to="/dashboard" className={navLinkClass}>
-                Dashboard
+                Events
               </NavLink>
-              <NavLink to="/invoices/create" className={navLinkClass}>
-                Create Invoice
+              <NavLink to="/events/add" className={navLinkClass}>
+                Add events
               </NavLink>
               <button
                 type="button"

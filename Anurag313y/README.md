@@ -1,22 +1,25 @@
-# Invoice Generator Dashboard
+# Event Dashboard
 
-MERN stack project — all code lives in this folder (`Anurag313y`).
+MERN stack — customer **events** (name, mobile, event name, date), PDF export, auth. Lives in `Anurag313y/`.
 
 ```
 Anurag313y/
-├── frontend/        # React (Vite) + Tailwind + TanStack Query
-├── backend/         # Express + Mongoose API
-├── docker-compose.yml   # (added later when you ask for Docker setup)
+├── frontend/           # React (Vite) + Tailwind + TanStack Query
+├── backend/            # Express + Mongoose API
+├── docker-compose.yml  # Mongo + API + nginx (production-style)
+├── DOCKER.md           # Docker usage
 └── README.md
 ```
 
-## Install dependencies
+## Local development (no Docker)
 
 **Backend**
 
 ```bash
 cd backend
 npm install
+copy .env.example .env
+npm run dev
 ```
 
 **Frontend**
@@ -24,58 +27,31 @@ npm install
 ```bash
 cd frontend
 npm install
-```
-
-## Environment files
-
-**Backend** — copy and edit:
-
-```bash
-cd backend
-copy .env.example .env
-```
-
-**Frontend** — optional:
-
-```bash
-cd frontend
-copy .env.example .env
-```
-
-## Run (without Docker for now)
-
-MongoDB in Docker will be set up in this folder when you request it. Until then, the backend needs a running MongoDB at `MONGO_URI` (default `mongodb://127.0.0.1:27017/invoice_generator`).
-
-**Terminal 1 — API**
-
-```bash
-cd backend
 npm run dev
 ```
 
-**Terminal 2 — UI**
+Vite proxies `/api` → `http://localhost:5001`. Open **http://localhost:5173**.
+
+## Docker
+
+See **[DOCKER.md](./DOCKER.md)** — `docker compose up --build` then open **http://localhost:3000**.
+
+Quick copy:
 
 ```bash
-cd frontend
-npm run dev
+cd Anurag313y
+copy .env.docker.example .env
+# Edit JWT_SECRET in .env
+docker compose up --build
 ```
 
-## Test health endpoint
+## Health checks
 
-With the backend running:
+- **Local API**: http://localhost:5001/api/health  
+- **Docker UI**: nginx only — use http://localhost:3000/api/health (proxied)
 
-- Browser: http://localhost:5001/api/health
-- Or: `curl http://localhost:5001/api/health`
+## Frontend stack
 
-> Port **5001** is used because Docker often occupies **5000** on Windows.
+- React Query hooks in `frontend/src/hooks/`
+- DevTools in development
 
-The frontend uses `/api` in dev — Vite proxies requests to the backend (no CORS issues). **Restart the frontend** after changing `.env` or `vite.config.js`.
-
-### React Query (TanStack Query)
-
-- API calls use `useQuery` / `useMutation` hooks in `frontend/src/hooks/`
-- DevTools panel available in development (bottom-left of the app)
-
-## Next step
-
-Auth + MongoDB models implementation (separate prompt).

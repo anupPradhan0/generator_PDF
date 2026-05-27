@@ -1,0 +1,57 @@
+# Invoice / Events dashboard — full stack with MongoDB
+# Usage: docker compose up --build
+# App: http://localhost:3000
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: event-dashboard-mongo
+    restart: unless-stopped
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: event-dashboard-api
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: "5001"
+      MONGO_URI: mongodb://mongo:27017/invoice_generator
+      JWT_SECRET: ${JWT_SECRET:-change_this_jwt_secret_in_production}
+      CLIENT_URL: http://localhost:${APP_PORT:-3000}
+    networks:
+      - app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: event-dashboard-web
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${APP_PORT:-3000}:80"
+    networks:
+      - app
+
+volumes:
+  mongodb_data:
+
+networks:
+  app:
+    driver: bridge

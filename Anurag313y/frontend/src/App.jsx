@@ -3,7 +3,6 @@ import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreateInvoice from './pages/CreateInvoice';
 import Dashboard from './pages/Dashboard';
-import InvoiceDetail from './pages/InvoiceDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
 
@@ -25,21 +24,16 @@ function App() {
             }
           />
           <Route
-            path="/invoices/create"
+            path="/events/add"
             element={
               <ProtectedRoute>
                 <CreateInvoice />
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/invoices/:id"
-            element={
-              <ProtectedRoute>
-                <InvoiceDetail />
-              </ProtectedRoute>
-            }
-          />
+          {/* Legacy redirects */}
+          <Route path="/invoices/create" element={<Navigate to="/events/add" replace />} />
+          <Route path="/invoices/:id" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
