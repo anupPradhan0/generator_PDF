@@ -1,0 +1,47 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+    volumes:
+      - ./backend/uploads:/app/uploads
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      # Docker network: service name "mongo" (not cloud / not localhost)
+      MONGODB_URI: mongodb://mongo:27017/pdf_generator
+      JWT_SECRET: change-me-please-use-a-long-secret
+      JWT_EXPIRES_IN: 7d
+      # Browser opens these on your machine (local URLs only)
+      CORS_ORIGIN: http://localhost:5173
+      PUBLIC_URL: http://localhost:5000
+      UPLOAD_DIR: uploads
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    environment:
+      # Vite proxy target inside Docker network
+      VITE_API_PROXY: http://backend:5000
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+
+volumes:
+  mongo_data:
+  frontend_node_modules:
