@@ -1,8 +1,8 @@
 import api from './axios';
 import { downloadBlob } from '../utils/downloadBlob';
 
-export const fetchInvoices = async () => {
-  const { data } = await api.get('/invoices');
+export const fetchInvoices = async ({ page = 1, limit = 10 } = {}) => {
+  const { data } = await api.get('/invoices', { params: { page, limit } });
   return data;
 };
 

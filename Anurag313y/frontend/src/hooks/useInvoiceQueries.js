@@ -11,11 +11,12 @@ import { getApiErrorMessage } from './useAuthQueries';
 
 export { getApiErrorMessage };
 
-export const useInvoicesQuery = (enabled = true) =>
+export const useInvoicesQuery = (page = 1, limit = 10, enabled = true) =>
   useQuery({
-    queryKey: queryKeys.invoices.list,
-    queryFn: fetchInvoices,
+    queryKey: queryKeys.invoices.list(page, limit),
+    queryFn: () => fetchInvoices({ page, limit }),
     enabled,
+    placeholderData: (previousData) => previousData,
   });
 
 export const useInvoiceQuery = (id, enabled = true) =>

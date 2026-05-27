@@ -34,7 +34,14 @@ Vite proxies `/api` → `http://localhost:5001`. Open **http://localhost:5173**.
 
 ## Docker
 
-See **[DOCKER.md](./DOCKER.md)** — `docker compose up --build` then open **http://localhost:3000**.
+See **[DOCKER.md](./DOCKER.md)**.
+
+| Mode | Command |
+|------|---------|
+| Local / staging | `docker compose up -d --build` |
+| Production | `docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build` |
+
+Open **http://localhost:3000** (set `CLIENT_URL` and secrets in `.env` for production).
 
 Quick copy:
 

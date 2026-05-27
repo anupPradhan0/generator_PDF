@@ -1,17 +1,34 @@
 import cors from 'cors';
 import express from 'express';
+import helmet from 'helmet';
+import mongoose from 'mongoose';
 import authRoutes from './routes/authRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
 
-const allowedOrigins = [
-  process.env.CLIENT_URL,
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
+const devOrigins = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-].filter(Boolean);
+];
+
+const allowedOrigins = isProduction
+  ? [process.env.CLIENT_URL].filter(Boolean)
+  : [process.env.CLIENT_URL, ...devOrigins].filter(Boolean);
+
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }),
+);
 
 app.use(
   cors({
@@ -27,15 +44,17 @@ app.use(
     allowedHeaders: ['Content-Type', 'Authorization'],
   }),
 );
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Invoice Generator API is running',
+  const dbReady = mongoose.connection.readyState === 1;
+
+  res.status(dbReady ? 200 : 503).json({
+    success: dbReady,
+    message: dbReady ? 'API is running' : 'Database not connected',
     timestamp: new Date().toISOString(),
-    database: 'mongodb',
+    database: dbReady ? 'connected' : 'disconnected',
   });
 });
 
@@ -53,7 +72,7 @@ app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(err.statusCode || 500).json({
     success: false,
-    message: err.message || 'Internal Server Error',
+    message: isProduction ? 'Internal Server Error' : err.message || 'Internal Server Error',
   });
 });
 

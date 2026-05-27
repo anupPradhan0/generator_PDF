@@ -3,38 +3,50 @@ import { Link } from 'react-router-dom';
 import EventDetailModal from '../components/EventDetailModal';
 import ExportEventsPanel from '../components/ExportEventsPanel';
 import InvoiceTable from '../components/InvoiceTable';
+import Pagination from '../components/Pagination';
 import {
   useDeleteInvoiceMutation,
   useInvoicesQuery,
 } from '../hooks/useInvoiceQueries';
 import { useAuth } from '../context/AuthContext';
 
+const PAGE_SIZE = 10;
+
 function Dashboard() {
   const { isAuthenticated } = useAuth();
-  const { data, isLoading, isError } = useInvoicesQuery(isAuthenticated);
-  const deleteMutation = useDeleteInvoiceMutation();
+  const [page, setPage] = useState(1);
   const [selectedEvent, setSelectedEvent] = useState(null);
 
+  const { data, isLoading, isError, isFetching } = useInvoicesQuery(
+    page,
+    PAGE_SIZE,
+    isAuthenticated,
+  );
+  const deleteMutation = useDeleteInvoiceMutation();
+
   const invoices = data?.data?.invoices ?? [];
-
-  const upcomingCount = invoices.filter((inv) => {
-    const eventDate = new Date(inv.eventDate);
-    return eventDate >= new Date(new Date().setHours(0, 0, 0, 0));
-  }).length;
-
-  const stats = {
-    total: invoices.length,
-    upcoming: upcomingCount,
-    past: invoices.length - upcomingCount,
+  const pagination = data?.data?.pagination ?? {
+    page: 1,
+    totalPages: 1,
+    total: 0,
   };
+  const stats = data?.data?.stats ?? { total: 0, upcoming: 0, past: 0 };
 
   const handleDelete = (id) => {
     if (!window.confirm('Delete this event permanently?')) return;
     deleteMutation.mutate(id, {
       onSuccess: () => {
         setSelectedEvent(null);
+        if (invoices.length === 1 && page > 1) {
+          setPage((p) => p - 1);
+        }
       },
     });
+  };
+
+  const handlePageChange = (nextPage) => {
+    setPage(nextPage);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   return (
@@ -78,11 +90,20 @@ function Dashboard() {
         </p>
       )}
 
-      <InvoiceTable
-        invoices={invoices}
-        isLoading={isLoading}
-        onSelectEvent={setSelectedEvent}
-      />
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <InvoiceTable
+          invoices={invoices}
+          isLoading={isLoading}
+          onSelectEvent={setSelectedEvent}
+        />
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={handlePageChange}
+          isLoading={isFetching}
+        />
+      </div>
 
       <EventDetailModal
         event={selectedEvent}

@@ -2,7 +2,8 @@ import Invoice from '../models/Invoice.js';
 import { generateEventsPDFBuffer } from '../utils/generateEventsPDF.js';
 import {
   generateReferenceNumber,
-  normalizeMobileNo,
+  getStartOfToday,
+  validateEventPayload,
 } from '../utils/invoiceHelpers.js';
 
 const buildDateRangeQuery = (dateStr) => {
@@ -26,20 +27,47 @@ const formatInvoice = (invoice) => ({
 
 export const getInvoices = async (req, res) => {
   try {
-    const invoices = await Invoice.find({ user: req.user.id })
-      .sort({ eventDate: -1 })
-      .select('-__v');
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    const skip = (page - 1) * limit;
+    const userFilter = { user: req.user.id };
+    const startOfToday = getStartOfToday();
+
+    const [total, upcoming, past, invoices] = await Promise.all([
+      Invoice.countDocuments(userFilter),
+      Invoice.countDocuments({ ...userFilter, eventDate: { $gte: startOfToday } }),
+      Invoice.countDocuments({ ...userFilter, eventDate: { $lt: startOfToday } }),
+      Invoice.find(userFilter)
+        .sort({ eventDate: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .select('-__v'),
+    ]);
+
+    const totalPages = Math.max(1, Math.ceil(total / limit));
 
     res.status(200).json({
       success: true,
       data: {
-        count: invoices.length,
         invoices: invoices.map(formatInvoice),
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
+        },
+        stats: {
+          total,
+          upcoming,
+          past,
+        },
       },
     });
   } catch (error) {
     console.error('Get invoices error:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to fetch event invoices' });
+    res.status(500).json({ success: false, message: 'Failed to fetch events' });
   }
 };
 
@@ -66,41 +94,13 @@ export const getInvoiceById = async (req, res) => {
 
 export const createInvoice = async (req, res) => {
   try {
-    const { customerName, mobileNo, eventName, eventDate } = req.body;
+    const validation = validateEventPayload(req.body);
 
-    if (!customerName?.trim()) {
+    if (!validation.isValid) {
       return res.status(400).json({
         success: false,
-        message: 'Customer name is required',
-      });
-    }
-
-    if (!mobileNo?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Mobile number is required',
-      });
-    }
-
-    if (!eventName?.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event name is required',
-      });
-    }
-
-    if (!eventDate) {
-      return res.status(400).json({
-        success: false,
-        message: 'Event date is required',
-      });
-    }
-
-    const parsedEventDate = new Date(eventDate);
-    if (Number.isNaN(parsedEventDate.getTime())) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid event date',
+        message: 'Validation failed',
+        errors: validation.errors,
       });
     }
 
@@ -109,10 +109,10 @@ export const createInvoice = async (req, res) => {
     const invoice = await Invoice.create({
       user: req.user.id,
       referenceNumber,
-      customerName: customerName.trim(),
-      mobileNo: normalizeMobileNo(mobileNo),
-      eventName: eventName.trim(),
-      eventDate: parsedEventDate,
+      customerName: validation.normalized.customerName,
+      mobileNo: validation.normalized.mobileNo,
+      eventName: validation.normalized.eventName,
+      eventDate: validation.normalized.eventDate,
     });
 
     res.status(201).json({
@@ -156,46 +156,25 @@ export const updateInvoice = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Event invoice not found' });
     }
 
-    if (req.body.customerName !== undefined) {
-      if (!req.body.customerName?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Customer name is required',
-        });
-      }
-      invoice.customerName = req.body.customerName.trim();
+    const validation = validateEventPayload({
+      customerName: req.body.customerName ?? invoice.customerName,
+      mobileNo: req.body.mobileNo ?? invoice.mobileNo,
+      eventName: req.body.eventName ?? invoice.eventName,
+      eventDate: req.body.eventDate ?? invoice.eventDate,
+    });
+
+    if (!validation.isValid) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: validation.errors,
+      });
     }
 
-    if (req.body.mobileNo !== undefined) {
-      if (!req.body.mobileNo?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Mobile number is required',
-        });
-      }
-      invoice.mobileNo = normalizeMobileNo(req.body.mobileNo);
-    }
-
-    if (req.body.eventName !== undefined) {
-      if (!req.body.eventName?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: 'Event name is required',
-        });
-      }
-      invoice.eventName = req.body.eventName.trim();
-    }
-
-    if (req.body.eventDate !== undefined) {
-      const parsedEventDate = new Date(req.body.eventDate);
-      if (Number.isNaN(parsedEventDate.getTime())) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid event date',
-        });
-      }
-      invoice.eventDate = parsedEventDate;
-    }
+    invoice.customerName = validation.normalized.customerName;
+    invoice.mobileNo = validation.normalized.mobileNo;
+    invoice.eventName = validation.normalized.eventName;
+    invoice.eventDate = validation.normalized.eventDate;
 
     await invoice.save();
 

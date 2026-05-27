@@ -5,7 +5,7 @@ export const queryKeys = {
   },
   invoices: {
     all: ['invoices'],
-    list: ['invoices', 'list'],
+    list: (page, limit) => ['invoices', 'list', { page, limit }],
     detail: (id) => ['invoices', 'detail', id],
   },
 };

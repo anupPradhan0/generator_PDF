@@ -1,0 +1,27 @@
+# Production overrides — use with base compose:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Before first prod deploy: copy .env.docker.example → .env and set secrets.
+# If enabling Mongo auth on an existing volume, run: docker compose down -v (wipes DB)
+
+services:
+  mongo:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    mem_limit: 1g
+    cpus: '1.0'
+
+  backend:
+    environment:
+      NODE_ENV: production
+      REQUIRE_STRONG_JWT: 'true'
+      MONGO_URI: mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@mongo:27017/invoice_generator?authSource=admin
+      JWT_SECRET: ${JWT_SECRET}
+      CLIENT_URL: ${CLIENT_URL}
+    mem_limit: 512m
+    cpus: '0.75'
+
+  frontend:
+    mem_limit: 256m
+    cpus: '0.5'

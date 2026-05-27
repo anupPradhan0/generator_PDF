@@ -3,7 +3,7 @@ import { formatDate } from '../utils/invoiceCalculations';
 
 function InvoiceTable({ invoices = [], isLoading = false, onSelectEvent }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 text-sm">
         <thead className="bg-slate-50">
           <tr>
