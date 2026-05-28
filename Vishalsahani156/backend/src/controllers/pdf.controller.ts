@@ -46,6 +46,7 @@ export const createRecord = catchAsync(async (req: Request, res: Response) => {
 
   const record = await PdfRecord.create({
     userId,
+    eventName: body.eventName,
     name: body.name,
     email: body.email,
     phone: body.phone,
@@ -186,6 +187,7 @@ export const updateRecord = catchAsync(async (req: Request, res: Response) => {
   record.eventDate = eventDate;
   record.sheetCategory = body.sheetCategory;
   record.description = body.description;
+  record.eventName = body.eventName;
   record.pdfUrl = written.pdfUrl;
   record.filePath = written.filePath;
 

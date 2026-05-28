@@ -32,6 +32,7 @@ export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
   MONGODB_URI: required("MONGODB_URI"),
   JWT_SECRET: required("JWT_SECRET"),
+  DEEPGRAM_API_KEY: process.env.DEEPGRAM_API_KEY || "",
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "7d",
   CORS_ORIGIN: process.env.CORS_ORIGIN || "http://localhost:5173",
   PUBLIC_URL: process.env.PUBLIC_URL || "http://localhost:5000",

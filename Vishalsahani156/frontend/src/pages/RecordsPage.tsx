@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,11 +10,18 @@ import { Button } from '../components/common/Button';
 import { InputField } from '../components/forms/InputField';
 import { SelectField } from '../components/forms/SelectField';
 import { TextAreaField } from '../components/forms/TextAreaField';
-import { getPdfsApi, deletePdfApi, updatePdfApi, getPdfByIdApi } from '../api/pdf.api';
-import { PdfRecord, SHEET_CATEGORIES, PdfFormData } from '../types';
-import { generatePdfBytes, downloadPdf } from '../utils/pdfGenerator';
+import {
+  deleteEventApi,
+  downloadAllEventsPdfApi,
+  downloadSingleEventPdfApi,
+  getEventByIdApi,
+  listEventsApi,
+  updateEventApi,
+} from '../api/events.api';
+import { EventsListMeta, PdfRecord, SHEET_CATEGORIES, PdfFormData } from '../types';
 
 const editSchema = z.object({
+  eventName: z.string().min(2),
   name: z.string().min(2),
   email: z.string().email(),
   phone: z.string().min(10),
@@ -29,6 +36,7 @@ export const RecordsPage = () => {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [meta, setMeta] = useState<EventsListMeta>({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [editingId, setEditingId] = useState<string | null>(
     searchParams.get('edit')
   );
@@ -40,20 +48,24 @@ export const RecordsPage = () => {
     formState: { errors, isSubmitting },
   } = useForm<PdfFormData>({ resolver: zodResolver(editSchema) });
 
+  const page = useMemo(() => Math.max(Number(searchParams.get('page') || 1), 1), [searchParams]);
+  const limit = useMemo(() => Math.min(Math.max(Number(searchParams.get('limit') || 10), 1), 50), [searchParams]);
+
   const fetchRecords = async () => {
     setLoading(true);
     try {
-      const { data } = await getPdfsApi({
+      const { data } = await listEventsApi({
         q: search || undefined,
         category: categoryFilter || undefined,
+        page,
+        limit,
       });
-      // Be tolerant to backend response shape changes while we iterate.
-      const list = (data as unknown as { data?: unknown; items?: unknown }).data ??
-        (data as unknown as { items?: unknown }).items;
-      setRecords(Array.isArray(list) ? (list as PdfRecord[]) : []);
+      setRecords(Array.isArray(data.data) ? data.data : []);
+      setMeta(data.meta ?? { page, limit, total: data.data?.length ?? 0 });
     } catch {
       toast.error('Failed to load records');
       setRecords([]);
+      setMeta({ page, limit, total: 0, totalPages: 1 });
     } finally {
       setLoading(false);
     }
@@ -61,7 +73,7 @@ export const RecordsPage = () => {
 
   useEffect(() => {
     fetchRecords();
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, page, limit]);
 
   useEffect(() => {
     const editId = searchParams.get('edit');
@@ -73,9 +85,10 @@ export const RecordsPage = () => {
 
   const loadRecord = async (id: string) => {
     try {
-      const { data } = await getPdfByIdApi(id);
+      const { data } = await getEventByIdApi(id);
       const record = data.data;
       reset({
+        eventName: record.eventName || '',
         name: record.name,
         email: record.email,
         phone: record.phone,
@@ -89,10 +102,10 @@ export const RecordsPage = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this PDF record?')) return;
+    if (!confirm('Delete this event?')) return;
     try {
-      await deletePdfApi(id);
-      toast.success('Record deleted');
+      await deleteEventApi(id);
+      toast.success('Event deleted');
       setRecords((prev) => prev.filter((r) => r._id !== id));
       if (editingId === id) {
         setEditingId(null);
@@ -107,6 +120,7 @@ export const RecordsPage = () => {
     setEditingId(record._id);
     setSearchParams({ edit: record._id });
     reset({
+      eventName: record.eventName || '',
       name: record.name,
       email: record.email,
       phone: record.phone,
@@ -119,8 +133,8 @@ export const RecordsPage = () => {
   const onUpdate = handleSubmit(async (data) => {
     if (!editingId) return;
     try {
-      await updatePdfApi(editingId, data);
-      toast.success('Record updated');
+      await updateEventApi(editingId, data);
+      toast.success('Event updated');
       setEditingId(null);
       setSearchParams({});
       fetchRecords();
@@ -129,26 +143,50 @@ export const RecordsPage = () => {
     }
   });
 
-  const regeneratePdf = async (record: PdfRecord) => {
+  const downloadStoredPdf = async (record: PdfRecord) => {
     try {
-      const bytes = await generatePdfBytes({
-        name: record.name,
-        email: record.email,
-        phone: record.phone,
-        eventDate: record.eventDate.split('T')[0],
-        sheetCategory: record.sheetCategory,
-        description: record.description,
-      });
-      downloadPdf(bytes, `${record.sheetCategory}-${record.name}.pdf`);
-      toast.success('PDF downloaded!');
+      const blob = await downloadSingleEventPdfApi(record._id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${record.sheetCategory}-${record.eventName || record.name}.pdf`.replace(/\s+/g, '-');
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF downloaded');
     } catch {
-      toast.error('Failed to generate PDF');
+      toast.error('Failed to download PDF');
     }
+  };
+
+  const downloadAllEvents = async () => {
+    try {
+      const blob = await downloadAllEventsPdfApi();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `all-events-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('All events PDF downloaded');
+    } catch {
+      toast.error('Failed to download all events PDF');
+    }
+  };
+
+  const goToPage = (nextPage: number) => {
+    const p = Math.max(1, nextPage);
+    setSearchParams((prev) => {
+      const n = new URLSearchParams(prev);
+      n.set('page', String(p));
+      n.set('limit', String(limit));
+      if (editingId) n.set('edit', editingId);
+      return n;
+    });
   };
 
   return (
     <DashboardLayout>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">My PDF Records</h1>
+      <h1 className="mb-6 text-2xl font-bold text-gray-900 dark:text-white">My Events</h1>
 
       <div className="mb-6 flex flex-wrap gap-3">
         <input
@@ -170,14 +208,19 @@ export const RecordsPage = () => {
             </option>
           ))}
         </select>
+
+        <Button type="button" variant="outline" onClick={downloadAllEvents} className="text-xs px-3 py-2">
+          Download All Events
+        </Button>
       </div>
 
       {editingId && (
         <div className="mb-8 rounded-xl border border-primary-200 bg-primary-50/50 p-6 dark:border-primary-800 dark:bg-primary-900/20">
           <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">
-            Edit Record
+            Edit Event
           </h2>
           <form>
+            <InputField label="Event Name" {...register('eventName')} error={errors.eventName?.message} />
             <InputField label="Name" {...register('name')} error={errors.name?.message} />
             <InputField label="Email" type="email" {...register('email')} error={errors.email?.message} />
             <InputField label="Phone" {...register('phone')} error={errors.phone?.message} />
@@ -212,7 +255,9 @@ export const RecordsPage = () => {
                 records.map((record) => (
                   <tr key={record._id}>
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900 dark:text-white">{record.name}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">
+                        {record.eventName || record.name}
+                      </p>
                       <p className="text-xs text-gray-500">{record.email}</p>
                     </td>
                     <td className="px-4 py-3">{record.sheetCategory}</td>
@@ -221,8 +266,8 @@ export const RecordsPage = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-wrap gap-1">
-                        <Button variant="outline" className="text-xs px-2 py-1" onClick={() => regeneratePdf(record)}>
-                          PDF
+                        <Button variant="outline" className="text-xs px-2 py-1" onClick={() => downloadStoredPdf(record)}>
+                          Download PDF
                         </Button>
                         <Button variant="secondary" className="text-xs px-2 py-1" onClick={() => handleEdit(record)}>
                           Edit
@@ -245,6 +290,36 @@ export const RecordsPage = () => {
           </table>
         </div>
       )}
+
+      {!loading && (meta.totalPages ?? 1) > 1 ? (
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Page <span className="font-semibold">{meta.page}</span> of{' '}
+            <span className="font-semibold">{meta.totalPages ?? 1}</span> · Total{' '}
+            <span className="font-semibold">{meta.total}</span>
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              type="button"
+              disabled={meta.page <= 1}
+              onClick={() => goToPage(meta.page - 1)}
+              className="px-3 py-1 text-xs"
+            >
+              Prev
+            </Button>
+            <Button
+              variant="outline"
+              type="button"
+              disabled={meta.page >= (meta.totalPages ?? 1)}
+              onClick={() => goToPage(meta.page + 1)}
+              className="px-3 py-1 text-xs"
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      ) : null}
     </DashboardLayout>
   );
 };

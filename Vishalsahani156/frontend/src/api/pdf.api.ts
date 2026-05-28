@@ -4,8 +4,10 @@ import { DashboardStats, PdfFormData, PdfRecord } from '../types';
 export const getDashboardApi = () =>
   api.get<{ success: boolean; data: DashboardStats }>('/pdfs/dashboard');
 
-export const getPdfsApi = (params?: { q?: string; category?: string }) =>
-  api.get<{ success: boolean; data: PdfRecord[] }>('/pdfs', { params });
+export const getPdfsApi = (params?: { q?: string; category?: string; page?: number; limit?: number }) =>
+  api.get<{ success: boolean; data: PdfRecord[]; meta?: { page: number; limit: number; total: number } }>('/pdfs', {
+    params,
+  });
 
 export const createPdfApi = (data: PdfFormData & { pdfUrl?: string }) =>
   api.post<{ success: boolean; data: PdfRecord }>('/pdfs', data);

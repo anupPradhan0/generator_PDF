@@ -120,9 +120,10 @@ export const generatePdfBytes = async (data: PdfFormData): Promise<Uint8Array> =
   y -= 25;
 
   const fields: { label: string; value: string; multiline?: boolean }[] = [
-    { label: 'Full Name', value: data.name },
-    { label: 'Email Address', value: data.email },
-    { label: 'Phone Number', value: data.phone },
+    { label: 'Event Name', value: data.eventName },
+    ...(data.name ? [{ label: 'Full Name', value: data.name }] : []),
+    ...(data.email ? [{ label: 'Email Address', value: data.email }] : []),
+    ...(data.phone ? [{ label: 'Phone Number', value: data.phone }] : []),
     {
       label: 'Event Date',
       value: new Date(data.eventDate).toLocaleDateString('en-US', {

@@ -32,16 +32,16 @@ export const DashboardPage = () => {
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dashboard</h1>
-          <p className="text-gray-600 dark:text-gray-400">Overview of your PDF activity</p>
+          <p className="text-gray-600 dark:text-gray-400">Overview of your event activity</p>
         </div>
         <Link to="/generate">
-          <Button>+ Generate New PDF</Button>
+          <Button>+ Create New Event</Button>
         </Link>
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total PDFs</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Total Events</p>
           <p className="mt-1 text-3xl font-bold text-primary-600">{stats?.total ?? 0}</p>
         </div>
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
@@ -53,7 +53,7 @@ export const DashboardPage = () => {
         <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900 sm:col-span-2 lg:col-span-1">
           <p className="text-sm text-gray-500 dark:text-gray-400">Quick Action</p>
           <Link to="/records" className="mt-2 inline-block text-sm text-primary-600 hover:underline">
-            View all records →
+            View all events →
           </Link>
         </div>
       </div>
@@ -79,7 +79,7 @@ export const DashboardPage = () => {
       <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
         <div className="border-b border-gray-200 px-6 py-4 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Recent Generated PDFs
+            Recent Events
           </h2>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -90,7 +90,7 @@ export const DashboardPage = () => {
                 className="flex flex-wrap items-center justify-between gap-2 px-6 py-4"
               >
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{record.name}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{record.eventName || record.name}</p>
                   <p className="text-sm text-gray-500">
                     {record.sheetCategory} · {new Date(record.createdAt).toLocaleDateString()}
                   </p>
@@ -103,7 +103,7 @@ export const DashboardPage = () => {
               </div>
             ))
           ) : (
-            <p className="px-6 py-8 text-center text-gray-500">No PDFs generated yet</p>
+            <p className="px-6 py-8 text-center text-gray-500">No events yet</p>
           )}
         </div>
       </div>

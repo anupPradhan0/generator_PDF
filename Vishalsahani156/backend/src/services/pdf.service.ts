@@ -147,9 +147,10 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
 
   // Body
   drawSectionTitle("Sheet Details");
-  drawField("Name", input.name);
-  drawField("Email", input.email);
-  drawField("Phone", input.phone);
+  drawField("Event Name", (input as any).eventName ?? "");
+  if (input.name) drawField("Name", input.name);
+  if (input.email) drawField("Email", input.email);
+  if (input.phone) drawField("Phone", input.phone);
   drawField("Event Date", formatDate(input.eventDate), 10.3);
   drawField("Sheet Category", input.sheetCategory, 10.3);
 

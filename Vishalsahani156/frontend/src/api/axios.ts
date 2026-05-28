@@ -4,10 +4,22 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
+  // If we're sending FormData, do not force a JSON content-type.
+  // Let the browser/axios set `multipart/form-data; boundary=...` automatically.
+  if (config.data instanceof FormData) {
+    if (config.headers) {
+      // AxiosHeader types vary across versions; use best-effort deletes.
+      delete (config.headers as any)['Content-Type'];
+      delete (config.headers as any)['content-type'];
+    }
+  } else {
+    config.headers = config.headers ?? {};
+    (config.headers as any)['Content-Type'] = (config.headers as any)['Content-Type'] || 'application/json';
+  }
+
   const token = localStorage.getItem('token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

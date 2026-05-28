@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom';
 
 const links = [
   { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/generate', label: 'Generate PDF', icon: '✨' },
-  { to: '/records', label: 'My Records', icon: '📁' },
+  { to: '/generate', label: 'Create Event', icon: '✨' },
+  { to: '/records', label: 'My Events', icon: '📁' },
   { to: '/profile', label: 'Profile', icon: '👤' },
 ];
 

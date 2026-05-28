@@ -1,9 +1,10 @@
 import { z } from "zod";
 
 export const pdfInputSchema = z.object({
-  name: z.string().min(2).max(120).trim(),
-  email: z.string().email().trim(),
-  phone: z.string().min(7).max(20).trim(),
+  eventName: z.string().min(2).max(160).trim(),
+  name: z.string().max(120).trim().optional().default(""),
+  email: z.string().email().trim().optional().default(""),
+  phone: z.string().max(20).trim().optional().default(""),
   eventDate: z
     .string()
     .min(1)

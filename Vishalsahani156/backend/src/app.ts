@@ -7,6 +7,8 @@ import { authRateLimiter, apiRateLimiter } from "./middleware/rateLimit";
 import { errorHandler } from "./middleware/errorHandler";
 import { authRoutes } from "./routes/auth.routes";
 import { pdfRoutes } from "./routes/pdf.routes";
+import { eventsRoutes } from "./modules/events/events.routes";
+import { voiceRoutes } from "./modules/voice/voice.routes";
 
 export const app = express();
 
@@ -23,6 +25,8 @@ app.use(express.json({ limit: "2mb" }));
 // API routes
 app.use("/api/auth", authRateLimiter, authRoutes);
 app.use("/api/pdfs", apiRateLimiter, pdfRoutes);
+app.use("/api/events", apiRateLimiter, eventsRoutes);
+app.use("/api/voice", apiRateLimiter, voiceRoutes);
 
 // Health check
 app.get("/health", (_req, res) => res.status(200).json({ ok: true }));
