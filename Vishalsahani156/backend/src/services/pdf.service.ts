@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import type { PDFFont } from "pdf-lib";
 import type { z } from "zod";
 import { pdfInputSchema } from "../validators/pdf.validators";
 
@@ -9,7 +10,7 @@ const A4 = { width: 595.28, height: 841.89 };
 function wrapText(args: {
   text: string;
   maxWidth: number;
-  font: any;
+  font: PDFFont;
   fontSize: number;
 }) {
   const { text, maxWidth, font, fontSize } = args;
@@ -52,7 +53,10 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
   let page = pdfDoc.addPage([A4.width, A4.height]);
   let y = A4.height - marginTop;
 
-  const headerHeight = 44;
+  // Header draws down to the divider at (A4.height - 70). Start body *below* that
+  // divider to avoid text overlap with the header's subtitle line.
+  const headerDividerY = A4.height - 70;
+  const bodyStartY = headerDividerY - 22;
 
   const drawHeader = () => {
     // Good-looking vector icon (self-contained; no external image file needed).
@@ -133,7 +137,7 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
   };
 
   drawHeader();
-  y = A4.height - marginTop;
+  y = bodyStartY;
 
   const lineHeight = 13;
 
@@ -141,7 +145,7 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
     if (y - neededHeight < marginBottom) {
       page = pdfDoc.addPage([A4.width, A4.height]);
       drawHeader();
-      y = A4.height - marginTop;
+      y = bodyStartY;
     }
   };
 
@@ -197,7 +201,7 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
 
   // Body
   drawSectionTitle("Sheet Details");
-  drawField("Event Name", (input as any).eventName ?? "");
+  drawField("Event Name", input.eventName ?? "");
   if (input.name) drawField("Name", input.name);
   if (input.email) drawField("Email", input.email);
   if (input.phone) drawField("Phone", input.phone);

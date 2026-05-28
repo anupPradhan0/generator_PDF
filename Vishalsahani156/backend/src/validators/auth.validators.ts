@@ -4,8 +4,7 @@ export const registerSchema = z.object({
   fullName: z
     .string({ required_error: "Field is required" })
     .trim()
-    .min(1, "Field is required")
-    .max(12, "Please enter a short name"),
+    .min(1, "Field is required"),
   email: z
     .string({ required_error: "Field is required" })
     .trim()

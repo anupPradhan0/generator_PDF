@@ -17,7 +17,7 @@ import { createAudioRecorder } from '../services/voice/audioRecorder';
 import { speak, stopSpeaking } from '../services/voice/speechSynthesis';
 
 const pdfFormSchema = z.object({
-  eventName: z.string().min(2, 'Event name is required'),
+  eventName: z.string().min(2, 'Please enter a short name'),
   eventDate: z.string().min(1, 'Event date is required'),
   sheetCategory: z.string().min(1, 'Please select a category'),
   description: z.string().min(1, 'Description is required'),
@@ -32,6 +32,12 @@ export const GeneratePdfPage = () => {
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [finalTranscript, setFinalTranscript] = useState<string>('');
   const [recorder] = useState(() => createAudioRecorder());
+
+  const revokePreviewUrl = (url: string | null) => {
+    if (!url) return;
+    // We only create blob URLs for preview; guard against accidental non-blob values.
+    if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+  };
 
   const {
     register,
@@ -81,11 +87,17 @@ export const GeneratePdfPage = () => {
         const lines: string[] = [];
         if (e.time) lines.push(`Time: ${e.time}`);
         if (e.location) lines.push(`Location: ${e.location}`);
+        if (e.notes) lines.push(e.notes);
         const existing = getValues('description') || '';
         const extra = lines.join('\n').trim();
         if (extra && !existing.includes(extra)) {
           setValue('description', existing ? `${existing}\n${extra}` : extra, { shouldValidate: true, shouldDirty: true });
         }
+      }
+
+      const suggested = result?.data?.suggested;
+      if (suggested?.description && !getValues('description')?.trim()) {
+        setValue('description', suggested.description, { shouldValidate: true, shouldDirty: true });
       }
 
       toast.success('Event details filled from audio');
@@ -160,7 +172,7 @@ export const GeneratePdfPage = () => {
     try {
       const bytes = await generatePdfBytes(data);
       setPdfBytes(bytes);
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      revokePreviewUrl(previewUrl);
       setPreviewUrl(pdfToDataUrl(bytes));
       toast.success('PDF generated successfully!');
       return bytes;
@@ -179,7 +191,7 @@ export const GeneratePdfPage = () => {
   const onPreview = handleSubmit(async (data) => {
     const bytes = pdfBytes ?? (await buildPdf(data));
     if (bytes) {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      revokePreviewUrl(previewUrl);
       setPreviewUrl(pdfToDataUrl(bytes));
     }
   });
@@ -214,7 +226,7 @@ export const GeneratePdfPage = () => {
   });
 
   const closePreview = () => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    revokePreviewUrl(previewUrl);
     setPreviewUrl(null);
   };
 

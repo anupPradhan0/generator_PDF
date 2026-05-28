@@ -6,9 +6,13 @@ export async function requireNotBlocked(req: Request, _res: Response, next: Next
   const userId = req.user?.userId;
   if (!userId) return next(new AppError("Unauthorized", 401));
 
-  const user = await User.findById(userId).select("isBlocked");
-  if (!user) return next(new AppError("User not found", 404));
-  if (user.isBlocked) return next(new AppError("Your account is blocked", 403));
-  return next();
+  try {
+    const user = await User.findById(userId).select("isBlocked");
+    if (!user) return next(new AppError("User not found", 404));
+    if (user.isBlocked) return next(new AppError("Your account is blocked", 403));
+    return next();
+  } catch {
+    return next(new AppError("Database is unavailable. Try again shortly.", 503));
+  }
 }
 

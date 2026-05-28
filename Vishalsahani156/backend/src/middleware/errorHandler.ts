@@ -10,7 +10,8 @@ export function errorHandler(
   _next: NextFunction
 ) {
   if (err instanceof multer.MulterError) {
-    if (err.code === "LIMIT_FILE_SIZE") {
+    const uploadErr = err;
+    if (uploadErr.code === "LIMIT_FILE_SIZE") {
       return res.status(413).json({
         message: "Uploaded file is too large"
       });
@@ -18,7 +19,7 @@ export function errorHandler(
 
     return res.status(400).json({
       message: "Upload error",
-      details: { code: err.code, field: err.field }
+      details: { code: uploadErr.code, field: uploadErr.field }
     });
   }
 
@@ -36,9 +37,14 @@ export function errorHandler(
     });
   }
 
-  // Avoid leaking stack traces to clients.
+  // Log unexpected errors server-side (check: docker-compose logs -f backend).
+  // eslint-disable-next-line no-console
+  console.error("[errorHandler] Unhandled error:", err);
+
+  // Avoid leaking stack traces to clients in production.
+  const isDev = process.env.NODE_ENV !== "production";
   return res.status(500).json({
-    message: "Internal server error"
+    message: isDev && err instanceof Error ? err.message : "Internal server error"
   });
 }
 
