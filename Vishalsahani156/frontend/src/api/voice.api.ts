@@ -13,9 +13,8 @@ export type VoiceAnalyzeResponse = {
 };
 
 export async function analyzeVoiceApi(formData: FormData) {
-  const res = await api.post<VoiceAnalyzeResponse>('/voice/analyze', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  });
+  // Let the browser/axios set the multipart boundary automatically.
+  const res = await api.post<VoiceAnalyzeResponse>('/voice/analyze', formData);
   return res.data;
 }
 
