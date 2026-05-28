@@ -85,10 +85,35 @@ export const updateMe = catchAsync(async (req: Request, res: Response) => {
   const user = await User.findById(userId);
   if (!user) throw new AppError("User not found", 404);
 
+  let passwordUpdated = false;
+
   if (body.fullName !== undefined) user.fullName = body.fullName;
   if (body.phoneNumber !== undefined) user.phoneNumber = body.phoneNumber;
 
+  if (body.newPassword !== undefined) {
+    const oldPasswordOk = await verifyPassword(body.oldPassword!, user.password);
+    if (!oldPasswordOk) {
+      throw new AppError("Old password is incorrect", 400);
+    }
+
+    const hashedPassword = await hashPassword(body.newPassword);
+    const updateResult = await User.updateOne(
+      { _id: userId },
+      { $set: { password: hashedPassword } }
+    );
+    if (updateResult.matchedCount === 0) {
+      throw new AppError("User not found", 404);
+    }
+
+    user.password = hashedPassword;
+    passwordUpdated = true;
+  }
+
   await user.save();
-  res.json({ user: publicUser(user) });
+
+  res.json({
+    user: publicUser(user),
+    ...(passwordUpdated && { message: "Password updated successfully" })
+  });
 });
 

@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/layout/Navbar';
 import { InputField } from '../components/forms/InputField';
+import { PasswordField } from '../components/forms/PasswordField';
 import { Button } from '../components/common/Button';
 
 const loginSchema = z.object({
@@ -54,9 +55,8 @@ export const LoginPage = () => {
               {...register('email')}
               error={errors.email?.message}
             />
-            <InputField
+            <PasswordField
               label="Password"
-              type="password"
               {...register('password')}
               error={errors.password?.message}
             />

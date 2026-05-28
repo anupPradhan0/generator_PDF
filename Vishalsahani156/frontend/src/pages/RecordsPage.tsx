@@ -62,8 +62,11 @@ export const RecordsPage = () => {
       });
       setRecords(Array.isArray(data.data) ? data.data : []);
       setMeta(data.meta ?? { page, limit, total: data.data?.length ?? 0 });
-    } catch {
-      toast.error('Failed to load records');
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        'Failed to load records';
+      toast.error(message);
       setRecords([]);
       setMeta({ page, limit, total: 0, totalPages: 1 });
     } finally {
@@ -153,8 +156,8 @@ export const RecordsPage = () => {
       a.click();
       URL.revokeObjectURL(url);
       toast.success('PDF downloaded');
-    } catch {
-      toast.error('Failed to download PDF');
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || 'Failed to download PDF');
     }
   };
 

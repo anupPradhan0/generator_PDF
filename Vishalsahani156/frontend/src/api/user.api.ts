@@ -25,10 +25,19 @@ export const getProfileApi = async (): Promise<User> => {
 export const updateProfileApi = async (data: {
   name?: string;
   phone?: string;
-}): Promise<User> => {
-  const res = await api.put<{ user: BackendUser }>('/auth/me', {
-    fullName: data.name?.trim(),
-    phoneNumber: data.phone?.trim(),
-  });
-  return toUser(res.data.user);
+  oldPassword?: string;
+  newPassword?: string;
+  confirmNewPassword?: string;
+}): Promise<{ user: User; message?: string }> => {
+  const payload: Record<string, string> = {};
+  const name = data.name?.trim();
+  const phone = data.phone?.trim();
+  if (name) payload.fullName = name;
+  if (phone) payload.phoneNumber = phone;
+  if (data.oldPassword?.trim()) payload.oldPassword = data.oldPassword;
+  if (data.newPassword?.trim()) payload.newPassword = data.newPassword;
+  if (data.confirmNewPassword?.trim()) payload.confirmNewPassword = data.confirmNewPassword;
+
+  const res = await api.put<{ user: BackendUser; message?: string }>('/auth/me', payload);
+  return { user: toUser(res.data.user), message: res.data.message };
 };
