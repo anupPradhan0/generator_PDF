@@ -2,19 +2,19 @@ import api from './axios';
 import { DashboardStats, PdfFormData, PdfRecord } from '../types';
 
 export const getDashboardApi = () =>
-  api.get<{ success: boolean; data: DashboardStats }>('/pdf/dashboard');
+  api.get<{ success: boolean; data: DashboardStats }>('/pdfs/dashboard');
 
 export const getPdfsApi = (params?: { q?: string; category?: string }) =>
-  api.get<{ success: boolean; data: PdfRecord[] }>('/pdf', { params });
+  api.get<{ success: boolean; data: PdfRecord[] }>('/pdfs', { params });
 
 export const createPdfApi = (data: PdfFormData & { pdfUrl?: string }) =>
-  api.post<{ success: boolean; data: PdfRecord }>('/pdf', data);
+  api.post<{ success: boolean; data: PdfRecord }>('/pdfs', data);
 
 export const getPdfByIdApi = (id: string) =>
-  api.get<{ success: boolean; data: PdfRecord }>(`/pdf/${id}`);
+  api.get<{ success: boolean; data: PdfRecord }>(`/pdfs/${id}`);
 
 export const updatePdfApi = (id: string, data: Partial<PdfFormData>) =>
-  api.put<{ success: boolean; data: PdfRecord }>(`/pdf/${id}`, data);
+  api.put<{ success: boolean; data: PdfRecord }>(`/pdfs/${id}`, data);
 
 export const deletePdfApi = (id: string) =>
-  api.delete<{ success: boolean; message: string }>(`/pdf/${id}`);
+  api.delete<{ success: boolean; message: string }>(`/pdfs/${id}`);

@@ -10,11 +10,28 @@ import { Button } from '../components/common/Button';
 
 const registerSchema = z
   .object({
-    name: z.string().min(2, 'Name must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().min(10, 'Phone must be at least 10 digits'),
-    password: z.string().min(8, 'Password must be at least 8 characters'),
-    confirmPassword: z.string(),
+    name: z
+      .string({ required_error: 'Field is required' })
+      .trim()
+      .min(1, 'Field is required')
+      .max(12, 'Please enter a short name'),
+    email: z
+      .string({ required_error: 'Field is required' })
+      .trim()
+      .min(1, 'Field is required')
+      .email('Invalid email address'),
+    phone: z
+      .string({ required_error: 'Field is required' })
+      .trim()
+      .min(1, 'Field is required')
+      .regex(/^\d+$/, 'Invalid number')
+      .max(12, 'Invalid number'),
+    password: z
+      .string({ required_error: 'Field is required' })
+      .min(1, 'Field is required')
+      .min(4, 'Minimum 4 characters required')
+      .max(8, 'Maximum 8 characters allowed'),
+    confirmPassword: z.string({ required_error: 'Field is required' }).min(1, 'Field is required'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
