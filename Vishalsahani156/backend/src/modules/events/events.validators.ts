@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sheetCategorySchema } from "../../utils/sheetCategory";
 
 export const eventInputSchema = z.object({
   eventName: z.string().min(2).max(160).trim(),
@@ -6,7 +7,7 @@ export const eventInputSchema = z.object({
     .string()
     .min(1)
     .refine((s) => !Number.isNaN(Date.parse(s)), "Invalid event date"),
-  eventCategory: z.string().min(2).max(60).trim(),
+  eventCategory: sheetCategorySchema,
   description: z.string().min(1).max(4000).trim()
 });
 

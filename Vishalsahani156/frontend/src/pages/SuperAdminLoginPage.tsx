@@ -5,6 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Navbar } from '../components/layout/Navbar';
 import { InputField } from '../components/forms/InputField';
+import { PasswordField } from '../components/forms/PasswordField';
 import { Button } from '../components/common/Button';
 import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
 
@@ -46,9 +47,8 @@ export const SuperAdminLoginPage = () => {
 
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
             <InputField label="Email" type="email" {...register('email')} error={errors.email?.message} />
-            <InputField
+            <PasswordField
               label="Password"
-              type="password"
               {...register('password')}
               error={errors.password?.message}
             />

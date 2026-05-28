@@ -1,4 +1,5 @@
-import { useForm } from 'react-hook-form';
+import { useState, type FocusEvent } from 'react';
+import { useForm, type UseFormRegisterReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useNavigate } from 'react-router-dom';
@@ -6,6 +7,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { Navbar } from '../components/layout/Navbar';
 import { InputField } from '../components/forms/InputField';
+import { PasswordField } from '../components/forms/PasswordField';
 import { Button } from '../components/common/Button';
 
 const registerSchema = z
@@ -39,14 +41,34 @@ const registerSchema = z
 
 type RegisterForm = z.infer<typeof registerSchema>;
 
+/** Stops browsers from pre-filling saved login/profile data on the register form. */
+const withoutAutofill = (field: UseFormRegisterReturn) => ({
+  ...field,
+  readOnly: true,
+  onFocus: (event: FocusEvent<HTMLInputElement>) => {
+    event.currentTarget.readOnly = false;
+    field.onFocus(event);
+  },
+});
+
 export const RegisterPage = () => {
+  const [passwordsVisible, setPasswordsVisible] = useState(false);
   const { register: registerUser } = useAuth();
   const navigate = useNavigate();
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<RegisterForm>({ resolver: zodResolver(registerSchema) });
+  } = useForm<RegisterForm>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
 
   const onSubmit = async (data: RegisterForm) => {
     try {
@@ -76,33 +98,42 @@ export const RegisterPage = () => {
             Register to start generating professional PDFs
           </p>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-6" autoComplete="off">
             <InputField
               label="Full Name"
-              {...register('name')}
+              autoComplete="off"
+              {...withoutAutofill(register('name'))}
               error={errors.name?.message}
             />
             <InputField
               label="Email"
               type="email"
-              {...register('email')}
+              autoComplete="off"
+              {...withoutAutofill(register('email'))}
               error={errors.email?.message}
             />
             <InputField
               label="Phone Number"
-              {...register('phone')}
+              type="tel"
+              inputMode="numeric"
+              autoComplete="off"
+              {...withoutAutofill(register('phone'))}
               error={errors.phone?.message}
             />
-            <InputField
+            <PasswordField
               label="Password"
-              type="password"
-              {...register('password')}
+              autoComplete="new-password"
+              visible={passwordsVisible}
+              showToggle={false}
+              {...withoutAutofill(register('password'))}
               error={errors.password?.message}
             />
-            <InputField
+            <PasswordField
               label="Confirm Password"
-              type="password"
-              {...register('confirmPassword')}
+              autoComplete="new-password"
+              visible={passwordsVisible}
+              onVisibleChange={setPasswordsVisible}
+              {...withoutAutofill(register('confirmPassword'))}
               error={errors.confirmPassword?.message}
             />
             <Button type="submit" className="w-full" isLoading={isSubmitting}>

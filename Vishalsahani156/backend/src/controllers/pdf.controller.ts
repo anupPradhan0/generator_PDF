@@ -6,9 +6,40 @@ import mongoose from "mongoose";
 import { env } from "../config/env";
 import { PdfRecord } from "../models/PdfRecord";
 import { generateA4PdfBytes } from "../services/pdf.service";
+import { matchAllowedSheetCategory } from "../constants/sheetCategories";
 import { AppError } from "../utils/AppError";
 import { catchAsync } from "../utils/catchAsync";
+import {
+  allowedCategoriesFilter,
+  assertAllowedCategoryFilter,
+  assertRecordHasAllowedCategory,
+  categoryNotFoundError
+} from "../utils/sheetCategory";
+import type { PdfInput } from "../services/pdf.service";
 import { pdfIdParamSchema, pdfInputSchema } from "../validators/pdf.validators";
+
+function toPdfInputFromRecord(record: {
+  eventName?: string | null;
+  name?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  eventDate?: Date;
+  sheetCategory?: string;
+  description?: string;
+}): PdfInput {
+  return {
+    eventName: record.eventName ?? "",
+    name: record.name ?? "",
+    email: record.email ?? "",
+    phone: record.phone ?? "",
+    eventDate:
+      record.eventDate instanceof Date
+        ? record.eventDate.toISOString()
+        : String(record.eventDate ?? new Date().toISOString()),
+    sheetCategory: matchAllowedSheetCategory(record.sheetCategory ?? "") ?? "Custom Sheet",
+    description: record.description ?? ""
+  };
+}
 
 async function writePdfToDisk(opts: {
   userId: string;
@@ -79,8 +110,11 @@ export const listRecords = catchAsync(async (req: Request, res: Response) => {
   const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 50);
   const skip = (page - 1) * limit;
 
-  const filter: Record<string, unknown> = { userId };
-  if (category) filter.sheetCategory = category;
+  const filter: Record<string, unknown> = { userId, ...allowedCategoriesFilter() };
+  if (category) {
+    assertAllowedCategoryFilter(category);
+    filter.sheetCategory = matchAllowedSheetCategory(category)!;
+  }
   if (q) {
     const regex = new RegExp(q, "i");
     filter.name = regex as any;
@@ -103,6 +137,10 @@ export const listRecords = catchAsync(async (req: Request, res: Response) => {
     PdfRecord.countDocuments(filter)
   ]);
 
+  if (category && total === 0) {
+    throw categoryNotFoundError();
+  }
+
   return res.json({
     success: true,
     data: items,
@@ -118,7 +156,8 @@ export const getRecordById = catchAsync(async (req: Request, res: Response) => {
   const id = params.id;
 
   const record = await PdfRecord.findOne({ _id: id, userId });
-  if (!record) throw new AppError("PDF record not found", 404);
+  if (!record) throw categoryNotFoundError();
+  assertRecordHasAllowedCategory(record.sheetCategory);
 
   return res.json({ success: true, data: record });
 });
@@ -161,7 +200,8 @@ export const updateRecord = catchAsync(async (req: Request, res: Response) => {
   if (Number.isNaN(eventDate.getTime())) throw new AppError("Invalid event date");
 
   const record = await PdfRecord.findOne({ _id: id, userId });
-  if (!record) throw new AppError("PDF record not found", 404);
+  if (!record) throw categoryNotFoundError();
+  assertRecordHasAllowedCategory(record.sheetCategory);
 
   // Regenerate PDF and overwrite file.
   const bytes = await generateA4PdfBytes(body);
@@ -225,9 +265,20 @@ export const downloadById = catchAsync(async (req: Request, res: Response) => {
   const id = params.id;
 
   const record = await PdfRecord.findOne({ _id: id, userId });
-  if (!record || !record.filePath) throw new AppError("File not found", 404);
+  if (!record) throw categoryNotFoundError();
+  assertRecordHasAllowedCategory(record.sheetCategory);
 
-  const fileBytes = await fs.readFile(record.filePath);
+  let fileBytes: Buffer;
+  if (record.filePath) {
+    try {
+      fileBytes = await fs.readFile(record.filePath);
+    } catch {
+      fileBytes = Buffer.from(await generateA4PdfBytes(toPdfInputFromRecord(record)));
+    }
+  } else {
+    fileBytes = Buffer.from(await generateA4PdfBytes(toPdfInputFromRecord(record)));
+  }
+
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader(
     "Content-Disposition",

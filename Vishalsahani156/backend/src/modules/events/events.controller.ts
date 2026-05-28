@@ -1,10 +1,17 @@
 import type { Request, Response } from "express";
 import fs from "fs/promises";
 import { PDFDocument } from "pdf-lib";
+import { matchAllowedSheetCategory } from "../../constants/sheetCategories";
 import { PdfRecord } from "../../models/PdfRecord";
 import { generateA4PdfBytes } from "../../services/pdf.service";
 import { AppError } from "../../utils/AppError";
 import { catchAsync } from "../../utils/catchAsync";
+import {
+  allowedCategoriesFilter,
+  assertAllowedCategoryFilter,
+  assertRecordHasAllowedCategory,
+  categoryNotFoundError
+} from "../../utils/sheetCategory";
 import { eventIdParamSchema, eventInputSchema, eventsListQuerySchema } from "./events.validators";
 
 /**
@@ -51,8 +58,11 @@ export const listEvents = catchAsync(async (req: Request, res: Response) => {
   const limit = query.limit;
   const skip = (page - 1) * limit;
 
-  const filter: Record<string, unknown> = { userId };
-  if (category) filter.sheetCategory = category;
+  const filter: Record<string, unknown> = { userId, ...allowedCategoriesFilter() };
+  if (category) {
+    assertAllowedCategoryFilter(category);
+    filter.sheetCategory = matchAllowedSheetCategory(category)!;
+  }
   if (q) {
     const regex = new RegExp(q, "i");
     (filter as any).$or = [
@@ -69,6 +79,10 @@ export const listEvents = catchAsync(async (req: Request, res: Response) => {
     PdfRecord.countDocuments(filter)
   ]);
 
+  if (category && total === 0) {
+    throw categoryNotFoundError();
+  }
+
   return res.json({
     success: true,
     data: items,
@@ -82,7 +96,8 @@ export const getEventById = catchAsync(async (req: Request, res: Response) => {
 
   const params = eventIdParamSchema.parse(req.params);
   const record = await PdfRecord.findOne({ _id: params.id, userId });
-  if (!record) throw new AppError("Event not found", 404);
+  if (!record) throw categoryNotFoundError();
+  assertRecordHasAllowedCategory(record.sheetCategory);
 
   return res.json({ success: true, data: record });
 });
@@ -140,7 +155,7 @@ function toPdfInputFromRecord(record: any) {
       record.eventDate instanceof Date
         ? record.eventDate.toISOString()
         : String(record.eventDate ?? new Date().toISOString()),
-    sheetCategory: record.sheetCategory ?? "",
+    sheetCategory: matchAllowedSheetCategory(record.sheetCategory ?? "") ?? "Custom Sheet",
     description: record.description ?? ""
   };
 }
@@ -151,12 +166,17 @@ export const downloadSingleEventPdf = catchAsync(async (req: Request, res: Respo
 
   const params = eventIdParamSchema.parse(req.params);
   const record = await PdfRecord.findOne({ _id: params.id, userId });
-  if (!record) throw new AppError("Event not found", 404);
+  if (!record) throw categoryNotFoundError();
+  assertRecordHasAllowedCategory(record.sheetCategory);
 
   let bytes: Uint8Array;
   if (record.filePath) {
-    const fileBytes = await fs.readFile(record.filePath);
-    bytes = new Uint8Array(fileBytes);
+    try {
+      const fileBytes = await fs.readFile(record.filePath);
+      bytes = new Uint8Array(fileBytes);
+    } catch {
+      bytes = await generateA4PdfBytes(toPdfInputFromRecord(record));
+    }
   } else {
     bytes = await generateA4PdfBytes(toPdfInputFromRecord(record));
   }
@@ -171,23 +191,37 @@ export const downloadAllEventsPdf = catchAsync(async (req: Request, res: Respons
   const userId = req.user?.userId;
   if (!userId) throw new AppError("Unauthorized", 401);
 
-  const records = await PdfRecord.find({ userId }).sort({ createdAt: -1 });
-  if (!records.length) throw new AppError("No events found", 404);
+  const records = await PdfRecord.find({ userId, ...allowedCategoriesFilter() }).sort({
+    createdAt: -1
+  });
+  if (!records.length) throw categoryNotFoundError();
 
   const outDoc = await PDFDocument.create();
 
   for (const record of records) {
-    let eventBytes: Uint8Array;
-    if (record.filePath) {
-      const fileBytes = await fs.readFile(record.filePath);
-      eventBytes = new Uint8Array(fileBytes);
-    } else {
-      eventBytes = await generateA4PdfBytes(toPdfInputFromRecord(record));
-    }
+    try {
+      let eventBytes: Uint8Array;
+      if (record.filePath) {
+        try {
+          const fileBytes = await fs.readFile(record.filePath);
+          eventBytes = new Uint8Array(fileBytes);
+        } catch {
+          eventBytes = await generateA4PdfBytes(toPdfInputFromRecord(record));
+        }
+      } else {
+        eventBytes = await generateA4PdfBytes(toPdfInputFromRecord(record));
+      }
 
-    const srcDoc = await PDFDocument.load(eventBytes);
-    const copiedPages = await outDoc.copyPages(srcDoc, srcDoc.getPageIndices());
-    for (const p of copiedPages) outDoc.addPage(p);
+      const srcDoc = await PDFDocument.load(eventBytes);
+      const copiedPages = await outDoc.copyPages(srcDoc, srcDoc.getPageIndices());
+      for (const p of copiedPages) outDoc.addPage(p);
+    } catch {
+      // Skip records whose PDF cannot be read or merged.
+    }
+  }
+
+  if (outDoc.getPageCount() === 0) {
+    throw categoryNotFoundError();
   }
 
   const mergedBytes = await outDoc.save();

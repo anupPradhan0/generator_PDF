@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -5,6 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Navbar } from '../components/layout/Navbar';
 import { InputField } from '../components/forms/InputField';
+import { PasswordField } from '../components/forms/PasswordField';
 import { Button } from '../components/common/Button';
 import { useSuperAdminAuth } from '../context/SuperAdminAuthContext';
 
@@ -24,6 +26,7 @@ const schema = z
 type Form = z.infer<typeof schema>;
 
 export const SuperAdminRegisterPage = () => {
+  const [passwordsVisible, setPasswordsVisible] = useState(false);
   const { register: registerAdmin } = useSuperAdminAuth();
   const navigate = useNavigate();
   const {
@@ -63,15 +66,17 @@ export const SuperAdminRegisterPage = () => {
           <form onSubmit={handleSubmit(onSubmit)} className="mt-6">
             <InputField label="Username" {...register('username')} error={errors.username?.message} />
             <InputField label="Email" type="email" {...register('email')} error={errors.email?.message} />
-            <InputField
+            <PasswordField
               label="Password"
-              type="password"
+              visible={passwordsVisible}
+              showToggle={false}
               {...register('password')}
               error={errors.password?.message}
             />
-            <InputField
+            <PasswordField
               label="Confirm Password"
-              type="password"
+              visible={passwordsVisible}
+              onVisibleChange={setPasswordsVisible}
               {...register('confirmPassword')}
               error={errors.confirmPassword?.message}
             />
