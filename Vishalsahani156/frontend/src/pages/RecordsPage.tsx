@@ -47,9 +47,13 @@ export const RecordsPage = () => {
         q: search || undefined,
         category: categoryFilter || undefined,
       });
-      setRecords(data.data);
+      // Be tolerant to backend response shape changes while we iterate.
+      const list = (data as unknown as { data?: unknown; items?: unknown }).data ??
+        (data as unknown as { items?: unknown }).items;
+      setRecords(Array.isArray(list) ? (list as PdfRecord[]) : []);
     } catch {
       toast.error('Failed to load records');
+      setRecords([]);
     } finally {
       setLoading(false);
     }
@@ -204,7 +208,7 @@ export const RecordsPage = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {records.length ? (
+              {(records?.length ?? 0) ? (
                 records.map((record) => (
                   <tr key={record._id}>
                     <td className="px-4 py-3">

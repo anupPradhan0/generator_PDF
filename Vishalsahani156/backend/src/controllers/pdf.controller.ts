@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import fs from "fs/promises";
 import path from "path";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import { env } from "../config/env";
 import { PdfRecord } from "../models/PdfRecord";
 import { generateA4PdfBytes } from "../services/pdf.service";
@@ -64,7 +65,7 @@ export const createRecord = catchAsync(async (req: Request, res: Response) => {
   record.filePath = written.filePath;
   await record.save();
 
-  return res.status(201).json({ record });
+  return res.status(201).json({ success: true, data: record });
 });
 
 export const listRecords = catchAsync(async (req: Request, res: Response) => {
@@ -72,11 +73,13 @@ export const listRecords = catchAsync(async (req: Request, res: Response) => {
   if (!userId) throw new AppError("Unauthorized", 401);
 
   const q = String(req.query.q || "").trim();
+  const category = String(req.query.category || "").trim();
   const page = Math.max(Number(req.query.page || 1), 1);
   const limit = Math.min(Math.max(Number(req.query.limit || 10), 1), 50);
   const skip = (page - 1) * limit;
 
   const filter: Record<string, unknown> = { userId };
+  if (category) filter.sheetCategory = category;
   if (q) {
     const regex = new RegExp(q, "i");
     filter.name = regex as any;
@@ -100,10 +103,48 @@ export const listRecords = catchAsync(async (req: Request, res: Response) => {
   ]);
 
   return res.json({
-    items,
-    page,
-    limit,
-    total
+    success: true,
+    data: items,
+    meta: { page, limit, total }
+  });
+});
+
+export const getRecordById = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError("Unauthorized", 401);
+
+  const params = pdfIdParamSchema.parse(req.params);
+  const id = params.id;
+
+  const record = await PdfRecord.findOne({ _id: id, userId });
+  if (!record) throw new AppError("PDF record not found", 404);
+
+  return res.json({ success: true, data: record });
+});
+
+export const getDashboard = catchAsync(async (req: Request, res: Response) => {
+  const userId = req.user?.userId;
+  if (!userId) throw new AppError("Unauthorized", 401);
+
+  const userObjectId = new mongoose.Types.ObjectId(userId);
+
+  const [total, recent, categories] = await Promise.all([
+    PdfRecord.countDocuments({ userId }),
+    PdfRecord.find({ userId }).sort({ createdAt: -1 }).limit(5),
+    PdfRecord.aggregate<{ _id: string; count: number }>([
+      { $match: { userId: userObjectId } },
+      { $group: { _id: "$sheetCategory", count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ])
+  ]);
+
+  return res.json({
+    success: true,
+    data: {
+      total,
+      recent,
+      categories
+    }
   });
 });
 
@@ -149,7 +190,7 @@ export const updateRecord = catchAsync(async (req: Request, res: Response) => {
   record.filePath = written.filePath;
 
   await record.save();
-  return res.json({ record });
+  return res.json({ success: true, data: record });
 });
 
 export const deleteRecord = catchAsync(async (req: Request, res: Response) => {
@@ -171,7 +212,7 @@ export const deleteRecord = catchAsync(async (req: Request, res: Response) => {
   }
 
   await record.deleteOne();
-  return res.status(204).send();
+  return res.json({ success: true, message: "Deleted" });
 });
 
 export const downloadById = catchAsync(async (req: Request, res: Response) => {
