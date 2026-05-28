@@ -7,7 +7,9 @@ const userSchema = new Schema(
     phoneNumber: { type: String, required: true, trim: true },
     password: { type: String, required: true },
     role: { type: String, enum: ["user", "admin"], default: "user", required: true },
-    isBlocked: { type: Boolean, default: false, required: true }
+    isBlocked: { type: Boolean, default: false, required: true },
+    blockedReason: { type: String, default: null },
+    blockedAt: { type: Date, default: null }
   },
   { timestamps: true }
 );

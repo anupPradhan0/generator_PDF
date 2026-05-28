@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAuth } from "../../middleware/auth";
 import { requireNotBlocked } from "../../middleware/requireNotBlocked";
-import { analyzeVoice } from "./voice.controller";
+import { analyzeVoice, audioToEvent, deepgramHealth } from "./voice.controller";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -13,6 +13,13 @@ const upload = multer({
 
 export const voiceRoutes = Router();
 
+voiceRoutes.get(
+  "/deepgram/health",
+  requireAuth as any,
+  requireNotBlocked as any,
+  deepgramHealth as any
+);
+
 // Type-cast to avoid @types/express duplication mismatch across repo.
 voiceRoutes.post(
   "/analyze",
@@ -20,5 +27,13 @@ voiceRoutes.post(
   requireNotBlocked as any,
   upload.single("audio") as any,
   analyzeVoice as any
+);
+
+voiceRoutes.post(
+  "/audio-to-event",
+  requireAuth as any,
+  requireNotBlocked as any,
+  upload.single("audio") as any,
+  audioToEvent as any
 );
 

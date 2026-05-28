@@ -18,3 +18,30 @@ export async function analyzeVoiceApi(formData: FormData) {
   return res.data;
 }
 
+export type AudioToEventResponse = {
+  success: boolean;
+  data: {
+    transcript: string;
+    sttConfidence?: number;
+    event: {
+      eventType: string;
+      date: string;
+      time: string;
+      location: string;
+      eventName?: string;
+      notes?: string;
+    };
+    suggested: {
+      eventName: string;
+      eventDate: string;
+      sheetCategory: string;
+      description: string;
+    };
+  };
+};
+
+export async function audioToEventApi(formData: FormData) {
+  const res = await api.post<AudioToEventResponse>('/voice/audio-to-event', formData);
+  return res.data;
+}
+

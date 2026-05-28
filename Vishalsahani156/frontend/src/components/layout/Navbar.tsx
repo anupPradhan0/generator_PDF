@@ -45,6 +45,11 @@ export const Navbar = () => {
                   Login
                 </Button>
               </Link>
+              <Link to="/super-admin/login">
+                <Button variant="secondary" className="text-xs sm:text-sm">
+                  Super Admin
+                </Button>
+              </Link>
               <Link to="/register">
                 <Button className="text-xs sm:text-sm">Register</Button>
               </Link>

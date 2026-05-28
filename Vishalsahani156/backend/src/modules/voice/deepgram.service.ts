@@ -12,6 +12,27 @@ type DeepgramListenResponse = {
   };
 };
 
+export async function deepgramValidateApiKey(): Promise<{ valid: boolean; status: number; message: string }> {
+  if (!env.DEEPGRAM_API_KEY) {
+    return { valid: false, status: 500, message: "Missing DEEPGRAM_API_KEY" };
+  }
+
+  const apiKey = String(env.DEEPGRAM_API_KEY || "").trim();
+  const res = await fetch("https://api.deepgram.com/v1/projects", {
+    method: "GET",
+    headers: {
+      Authorization: `Token ${apiKey}`
+    }
+  });
+
+  if (res.ok) return { valid: true, status: res.status, message: "OK" };
+
+  const text = await res.text().catch(() => "");
+  const msg = text?.trim() || res.statusText || "Request failed";
+  // 401/403 are the common cases for invalid/revoked key
+  return { valid: false, status: res.status, message: msg };
+}
+
 export async function deepgramTranscribe(opts: {
   audioBuffer: Buffer;
   contentType: string;
@@ -19,6 +40,7 @@ export async function deepgramTranscribe(opts: {
 }): Promise<{ transcript: string; confidence?: number }> {
   if (!env.DEEPGRAM_API_KEY) throw new AppError("Deepgram is not configured (missing DEEPGRAM_API_KEY)", 500);
 
+  const apiKey = String(env.DEEPGRAM_API_KEY || "").trim();
   const url = new URL("https://api.deepgram.com/v1/listen");
   url.searchParams.set("model", "nova-2");
   url.searchParams.set("smart_format", "true");
@@ -28,7 +50,7 @@ export async function deepgramTranscribe(opts: {
   const res = await fetch(url.toString(), {
     method: "POST",
     headers: {
-      Authorization: `Token ${env.DEEPGRAM_API_KEY}`,
+      Authorization: `Token ${apiKey}`,
       "Content-Type": opts.contentType
     },
     body: new Uint8Array(opts.audioBuffer)

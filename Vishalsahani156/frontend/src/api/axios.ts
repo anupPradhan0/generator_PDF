@@ -1,6 +1,24 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+function getDefaultApiBaseUrl() {
+  // Prefer an explicit env var (works in dev/prod).
+  const explicit = (import.meta.env.VITE_API_URL || '').trim();
+  if (explicit) return explicit;
+
+  // In local dev, API runs on :5000 while Vite runs on :5173.
+  // Using a relative `/api` relies on Vite's dev proxy, which is not active in `vite preview`.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return `${window.location.protocol}//${host}:5000/api`;
+    }
+  }
+
+  // Fallback for deployments where frontend and backend share origin under `/api`.
+  return '/api';
+}
+
+const API_URL = getDefaultApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_URL,

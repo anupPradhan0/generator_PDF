@@ -11,7 +11,7 @@ import { Button } from '../components/common/Button';
 import { PdfPreviewModal } from '../components/pdf/PdfPreviewModal';
 import { SHEET_CATEGORIES, PdfFormData } from '../types';
 import { createPdfApi } from '../api/pdf.api';
-import { analyzeVoiceApi } from '../api/voice.api';
+import { audioToEventApi } from '../api/voice.api';
 import { generatePdfBytes, downloadPdf, pdfToDataUrl } from '../utils/pdfGenerator';
 import { createAudioRecorder } from '../services/voice/audioRecorder';
 import { speak, stopSpeaking } from '../services/voice/speechSynthesis';
@@ -28,6 +28,7 @@ export const GeneratePdfPage = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isListening, setIsListening] = useState(false);
+  const [isAnalyzingAudio, setIsAnalyzingAudio] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState<string>('');
   const [finalTranscript, setFinalTranscript] = useState<string>('');
   const [recorder] = useState(() => createAudioRecorder());
@@ -39,6 +40,65 @@ export const GeneratePdfPage = () => {
     setValue,
     formState: { errors },
   } = useForm<PdfFormData>({ resolver: zodResolver(pdfFormSchema) });
+
+  const applySuggestedToForm = (suggested?: Partial<PdfFormData>) => {
+    if (!suggested) return;
+    const next = suggested as Partial<PdfFormData>;
+    const keys = Object.keys(next) as Array<keyof PdfFormData>;
+    for (const k of keys) {
+      if (k === 'name' || k === 'email' || k === 'phone') continue;
+      const v = next[k];
+      if (typeof v === 'string' && v.trim()) {
+        if (k === 'sheetCategory') {
+          // If Gemini suggests a category not in allowed list, keep UX stable.
+          const allowed = new Set(SHEET_CATEGORIES);
+          const category = allowed.has(v as any) ? v : 'Custom Sheet';
+          setValue('sheetCategory', category, { shouldValidate: true, shouldDirty: true });
+          continue;
+        }
+        setValue(k, v, { shouldValidate: true, shouldDirty: true });
+      }
+    }
+  };
+
+  const analyzeAudioAndFill = async (opts: { blob: Blob; filename: string; language?: string }) => {
+    setIsAnalyzingAudio(true);
+    try {
+      const formData = new FormData();
+      formData.append('audio', opts.blob, opts.filename);
+      formData.append('language', opts.language || 'en-IN');
+      formData.append('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata');
+
+      const result = await audioToEventApi(formData);
+      const transcript = result?.data?.transcript || '';
+      setFinalTranscript(transcript);
+
+      applySuggestedToForm(result?.data?.suggested);
+
+      // Also enrich description with explicit event info if present.
+      const e = result?.data?.event;
+      if (e) {
+        const lines: string[] = [];
+        if (e.time) lines.push(`Time: ${e.time}`);
+        if (e.location) lines.push(`Location: ${e.location}`);
+        const existing = getValues('description') || '';
+        const extra = lines.join('\n').trim();
+        if (extra && !existing.includes(extra)) {
+          setValue('description', existing ? `${existing}\n${extra}` : extra, { shouldValidate: true, shouldDirty: true });
+        }
+      }
+
+      toast.success('Event details filled from audio');
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err as Error)?.message ||
+        'Failed to analyze audio';
+      toast.error(message);
+    } finally {
+      setIsAnalyzingAudio(false);
+    }
+  };
 
   const onStartListening = async () => {
     try {
@@ -73,31 +133,26 @@ export const GeneratePdfPage = () => {
         return;
       }
 
-      const formData = new FormData();
-      formData.append('audio', blob, `voice.${mimeType.includes('ogg') ? 'ogg' : 'webm'}`);
-      formData.append('language', 'en-IN');
-
-      const result = await analyzeVoiceApi(formData);
-      const transcript = result?.data?.transcript || '';
-      setFinalTranscript(transcript);
-
-      const extracted = result?.data?.extracted || {};
-      const keys = Object.keys(extracted) as Array<keyof PdfFormData>;
-      for (const k of keys) {
-        // Create Event no longer uses these fields.
-        if (k === 'name' || k === 'email' || k === 'phone') continue;
-        const v = extracted[k];
-        if (typeof v === 'string' && v.trim()) {
-          setValue(k, v, { shouldValidate: true, shouldDirty: true });
-        }
-      }
-
-      speak(transcript.trim() ? 'Voice added successfully.' : 'Stopped listening.');
+      await analyzeAudioAndFill({
+        blob,
+        filename: `voice.${mimeType.includes('ogg') ? 'ogg' : 'webm'}`,
+        language: 'en-IN',
+      });
+      speak('Audio analyzed successfully.');
     } catch (e) {
       setIsListening(false);
       setLiveTranscript('');
       toast.error((e as Error)?.message || 'Failed to stop microphone');
     }
+  };
+
+  const onUploadAudioFile = async (file: File) => {
+    if (!file) return;
+    if (!file.size) {
+      toast.error('Selected file is empty');
+      return;
+    }
+    await analyzeAudioAndFill({ blob: file, filename: file.name, language: 'en-IN' });
   };
 
   const buildPdf = async (data: PdfFormData) => {
@@ -175,7 +230,7 @@ export const GeneratePdfPage = () => {
 
         <form className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-900">
           <div className="mb-4 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Voice input</p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Audio to event (AI)</p>
             {isListening ? (
               <Button type="button" variant="danger" className="px-3 py-1 text-xs" onClick={onStopListening}>
                 Stop
@@ -186,10 +241,29 @@ export const GeneratePdfPage = () => {
               </Button>
             )}
           </div>
+          <div className="mb-4 flex flex-wrap items-center gap-3">
+            <label className="text-xs font-medium text-gray-700 dark:text-gray-300">
+              Upload audio
+              <input
+                type="file"
+                accept="audio/*"
+                className="mt-1 block w-full text-xs text-gray-700 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-medium file:text-gray-700 hover:file:bg-gray-200 dark:text-gray-200 dark:file:bg-gray-800 dark:file:text-gray-200 dark:hover:file:bg-gray-700"
+                disabled={isAnalyzingAudio || isListening}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) onUploadAudioFile(f);
+                  e.currentTarget.value = '';
+                }}
+              />
+            </label>
+            {isAnalyzingAudio ? (
+              <span className="text-xs text-gray-600 dark:text-gray-300">Analyzing audio…</span>
+            ) : null}
+          </div>
           {isListening ? (
             <div className="mb-4 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-xs text-primary-900 dark:border-primary-800 dark:bg-primary-900/20 dark:text-primary-100">
               <div className="flex items-center justify-between gap-2">
-                <span>Listening… speak like: “Event date is 20 June 2026”</span>
+                <span>Listening… say: “Create a birthday event on 25 June at 7 PM in Delhi”</span>
                 <div className="voice-wave" aria-hidden="true">
                   <span />
                   <span />

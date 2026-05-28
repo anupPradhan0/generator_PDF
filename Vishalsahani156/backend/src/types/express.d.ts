@@ -5,6 +5,9 @@ declare module "express-serve-static-core" {
     user?: {
       userId: string;
     };
+    superAdmin?: {
+      adminId: string;
+    };
   }
 }
 
