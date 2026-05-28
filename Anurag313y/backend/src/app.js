@@ -6,6 +6,7 @@ import authRoutes from './routes/authRoutes.js';
 import adminAuthRoutes from './routes/adminAuthRoutes.js';
 import adminUsersRoutes from './routes/adminUsersRoutes.js';
 import invoiceRoutes from './routes/invoiceRoutes.js';
+import voiceRoutes from './routes/voiceRoutes.js';
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
@@ -64,6 +65,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/invoices', invoiceRoutes);
+app.use('/api/voice', voiceRoutes);
 
 app.use((req, res) => {
   res.status(404).json({

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import VoiceRecorder from './VoiceRecorder';
+import VoiceReview from './VoiceReview';
 import {
   defaultEventInvoiceForm,
   getMinEventDateString,
@@ -13,6 +15,8 @@ import {
   getApiErrorMessage,
   useCreateInvoiceMutation,
 } from '../hooks/useInvoiceQueries';
+import { voiceExtract, voiceTranscribe } from '../api/voiceApi';
+import { audioBlobToWav } from '../utils/audioToWav';
 
 const inputClass = (hasError) =>
   `w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 ${
@@ -28,6 +32,13 @@ function InvoiceForm() {
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [submitted, setSubmitted] = useState(false);
+  const [voiceState, setVoiceState] = useState({
+    status: 'idle', // idle | transcribing | extracting | ready | error
+    transcript: '',
+    warnings: [],
+    fields: null,
+    error: '',
+  });
 
   const minEventDate = getMinEventDateString();
 
@@ -45,6 +56,73 @@ function InvoiceForm() {
       return next;
     });
     createMutation.reset();
+  };
+
+  const applyVoiceFields = () => {
+    if (!voiceState.fields) return;
+    const f = voiceState.fields;
+    if (f.customerName) updateField('customerName', f.customerName);
+    if (f.mobileNo) updateField('mobileNo', f.mobileNo);
+    if (f.eventName) updateField('eventName', f.eventName);
+    if (f.eventDate) updateField('eventDate', f.eventDate);
+  };
+
+  const handleRecorded = async (blob) => {
+    if (!blob || blob.size < 8 * 1024) {
+      setVoiceState({
+        status: 'error',
+        transcript: '',
+        warnings: [],
+        fields: null,
+        error:
+          'Recording was too short or silent. Please record 2–5 seconds and speak clearly.',
+      });
+      return;
+    }
+
+    setVoiceState({
+      status: 'transcribing',
+      transcript: '',
+      warnings: [],
+      fields: null,
+      error: '',
+    });
+
+    try {
+      // Convert to WAV for maximum Deepgram compatibility.
+      const wavBlob = await audioBlobToWav(blob);
+      const transcribed = await voiceTranscribe(wavBlob, 'voice.wav');
+      const transcript = transcribed?.data?.transcript || '';
+
+      if (!transcript.trim()) {
+        setVoiceState({
+          status: 'error',
+          transcript: '',
+          warnings: [],
+          fields: null,
+          error: 'No speech detected. Try again and speak clearly.',
+        });
+        return;
+      }
+
+      setVoiceState((prev) => ({ ...prev, status: 'extracting', transcript }));
+      const extracted = await voiceExtract(transcript);
+      setVoiceState({
+        status: 'ready',
+        transcript,
+        warnings: extracted?.data?.warnings || [],
+        fields: extracted?.data?.fields || null,
+        error: '',
+      });
+    } catch (e) {
+      setVoiceState({
+        status: 'error',
+        transcript: '',
+        warnings: [],
+        fields: null,
+        error: e?.response?.data?.message || 'Voice processing failed. Please try again.',
+      });
+    }
   };
 
   const handleMobileChange = (e) => {
@@ -104,6 +182,26 @@ function InvoiceForm() {
           {apiError}
         </div>
       )}
+
+      <div className="mb-4 space-y-4">
+        <VoiceRecorder
+          onRecorded={handleRecorded}
+          disabled={voiceState.status === 'transcribing' || voiceState.status === 'extracting'}
+        />
+
+        {voiceState.error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {voiceState.error}
+          </div>
+        )}
+
+        <VoiceReview
+          transcript={voiceState.transcript}
+          warnings={voiceState.warnings}
+          onApply={applyVoiceFields}
+          isApplying={false}
+        />
+      </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Event details</h2>

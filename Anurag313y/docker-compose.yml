@@ -38,8 +38,8 @@ services:
     restart: unless-stopped
     init: true
     env_file:
-      - path: .env
-        required: false
+      - .env
+      - .env.docker.example
     depends_on:
       mongo:
         condition: service_healthy
