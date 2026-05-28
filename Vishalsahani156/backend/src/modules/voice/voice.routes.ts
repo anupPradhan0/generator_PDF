@@ -2,7 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { requireAuth } from "../../middleware/auth";
 import { requireNotBlocked } from "../../middleware/requireNotBlocked";
-import { analyzeVoice, audioToEvent, deepgramHealth } from "./voice.controller";
+import { analyzeVoice, audioToEvent, bookEventFromAudio, deepgramHealth } from "./voice.controller";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -35,5 +35,14 @@ voiceRoutes.post(
   requireNotBlocked as any,
   upload.single("audio") as any,
   audioToEvent as any
+);
+
+// Voice → Extract → Book (creates an event record for the user)
+voiceRoutes.post(
+  "/book-event",
+  requireAuth as any,
+  requireNotBlocked as any,
+  upload.single("audio") as any,
+  bookEventFromAudio as any
 );
 

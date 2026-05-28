@@ -55,9 +55,59 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
   const headerHeight = 44;
 
   const drawHeader = () => {
+    // Good-looking vector icon (self-contained; no external image file needed).
+    const iconSize = 26;
+    const iconX = marginX;
+    const iconY = A4.height - 52;
+
+    // Shadow
+    page.drawRectangle({
+      x: iconX + 1.2,
+      y: iconY - 1.2,
+      width: iconSize,
+      height: iconSize,
+      color: rgb(0, 0, 0),
+      opacity: 0.08
+    });
+
+    // Badge background
+    page.drawRectangle({
+      x: iconX,
+      y: iconY,
+      width: iconSize,
+      height: iconSize,
+      color: rgb(0.12, 0.36, 0.95)
+    });
+
+    // Inner document card
+    page.drawRectangle({
+      x: iconX + 6.2,
+      y: iconY + 6,
+      width: iconSize - 12.4,
+      height: iconSize - 12,
+      color: rgb(1, 1, 1),
+      opacity: 0.95
+    });
+
+    // Lines on the "document"
+    page.drawLine({
+      start: { x: iconX + 8.2, y: iconY + 16.2 },
+      end: { x: iconX + iconSize - 8.2, y: iconY + 16.2 },
+      thickness: 1,
+      color: rgb(0.12, 0.36, 0.95),
+      opacity: 0.9
+    });
+    page.drawLine({
+      start: { x: iconX + 8.2, y: iconY + 12.4 },
+      end: { x: iconX + iconSize - 10.5, y: iconY + 12.4 },
+      thickness: 1,
+      color: rgb(0.12, 0.36, 0.95),
+      opacity: 0.7
+    });
+
     // Header title
     page.drawText("PDF Generator", {
-      x: marginX,
+      x: marginX + iconSize + 10,
       y: A4.height - 42,
       size: 16,
       font: boldFont,
@@ -66,7 +116,7 @@ export async function generateA4PdfBytes(input: PdfInput): Promise<Uint8Array> {
 
     // Subheader
     page.drawText(`Category: ${input.sheetCategory}`, {
-      x: marginX,
+      x: marginX + iconSize + 10,
       y: A4.height - 62,
       size: 10.5,
       font: regularFont,
